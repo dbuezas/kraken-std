@@ -11,7 +11,7 @@ from ..gitignore import GitignoreFile, parse_gitignore, sort_gitignore
 # TODO(david-luke): ch2. The apply fn should save a copy of the replaced file .gitignore.old
 
 
-class GitignoreSyncTask(RenderFileTask):
+class GitignoreCheckTask(RenderFileTask):
     """This task ensures that a given set of entries are present in a `.gitignore` file.
 
     The :attr:`header` property can be set to place the paths below a particular comment in the `.gitignore` file. If
@@ -24,22 +24,7 @@ class GitignoreSyncTask(RenderFileTask):
     """
 
     file: Property[Path]
-    sort_paths: Property[bool] = Property.config(default=True)
-    sort_groups: Property[bool] = Property.config(default=False)
-    tokens: Property[Sequence[str]]
     # TODO(david-luke): ch2 Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)
 
     def __init__(self, name: str, project: Project) -> None:
         super().__init__(name, project)
-        self.file.setcallable(lambda: self.project.directory / ".gitignore")
-        self.content.setcallable(lambda: self.get_file_contents(self.file.get()))
-
-    def get_file_contents(self, file: Path) -> str | bytes:
-        if file.exists():
-            gitignore = parse_gitignore(file)
-        else:
-            gitignore = GitignoreFile([])
-
-        gitignore = sort_gitignore(gitignore, self.sort_paths.get(), self.sort_groups.get())
-
-        return gitignore.render()
