@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import enum
+import hashlib
 import io
 from itertools import islice
 from os import PathLike
 from pathlib import Path
 from typing import Iterable, NamedTuple, TextIO, Sequence
 import re
+
+import httpx
 
 
 GITIGNORE_API_URL = "https://www.toptal.com/developers/gitignore/api/"
@@ -20,6 +23,31 @@ GENERATED_GUARD_DESCRIPTION = """\
 #
 """
 GENERATED_GUARD_END = "### END-GENERATED-CONTENT"
+
+DEFAULT_TOKENS = [
+    # Platforms
+    'macos',
+    'linux',
+    'windows',
+    # IDEs
+    'visualstudiocode',
+    'vim',
+    'emacs',
+    'clion',
+    'intellij',
+    'pycharm',
+    'jupyternotebooks',
+    # Tooling
+    'git',
+    'gcov',
+    'node',
+    'yarn',
+    # Languages
+    'python',
+    'rust',
+    'react',
+    'matlab'
+]
 
 
 class GitignoreEntryType(enum.Enum):
@@ -95,6 +123,23 @@ class GitignoreFile(NamedTuple):
     def render(self) -> str:
         return "\n".join(map(str, self.entries)) + "\n"
 
+    def refresh_generated_content(self, tokens=DEFAULT_TOKENS) -> None:
+        result = httpx.get(GITIGNORE_API_URL + tokens.join(','))
+        # TODO(david): error handling / nice task status erros
+        assert (result.status_code == 200)
+
+        # TODO(david): A bit to much reliance on side effects. Review.
+        self.generated_content_tokens = tokens
+        self.generated_content = result.text
+
+    def refresh_hash(self) -> None:
+        self.generated_content_hash = hashlib.sha256(self.generated_content)
+
+    def validate_generated_content(self, tokens=DEFAULT_TOKENS) -> bool:
+        hash_match = self.generated_content_tokens == tokens
+        tokens_match = self.generated_content_hash == hashlib.sha256(self.generated_content)
+        return hash_match and tokens_match
+
 
 def parse_gitignore(file: TextIO | Path | str) -> GitignoreFile:
     if isinstance(file, str):
@@ -103,43 +148,29 @@ def parse_gitignore(file: TextIO | Path | str) -> GitignoreFile:
         with file.open() as fp:
             return parse_gitignore(fp)
 
-    # TODO(david-luke): ch2     - - Extend parser to cover
-    # - generated_content
-    # - generated_content_token_list
-    # - generated_content_hash
-    result = GitignoreFile([])
+    gitignore = GitignoreFile([])
     inside_guard = False
+    generated_content = []
     for line in file:
-
-        
-
         line = line.rstrip("\n")
-
-
-        if match:=re.match(GENERATED_GUARD_START_REGEX, line):
-            result.generated_hash = match.group(1)
+        if match := re.match(GENERATED_GUARD_START_REGEX, line):
+            gitignore.generated_hash = match.group(1)
             inside_guard = True
-        elif match:=re.match(GENERATED_GUARD_START_REGEX, line):
+        elif line == GENERATED_GUARD_END:
             inside_guard = False
-
+            gitignore.generated_content = generated_content.join('\n')
         elif inside_guard:
-            result.generated_content = result.generated_content + line + "\n"
-            if token_match:=re.match(GENERATED_TOKEN_REGEX, line):
-                result.generated_content_tokens = token_match.group(1).split(', ')
-
-
-
+            generated_content += [line]
+            if token_match := re.match(GENERATED_TOKEN_REGEX, line):
+                gitignore.generated_content_tokens = token_match.group(1).split(', ')
         elif line.startswith("#"):
-            line = line[1:].lstrip()
-            type = GitignoreEntryType.COMMENT
+            gitignore.entries.append(GitignoreEntry(GitignoreEntryType.COMMENT, line[1:].lstrip()))
         elif not line.strip():
-            line = ""
-            type = GitignoreEntryType.BLANK
+            gitignore.entries.append(GitignoreEntry(GitignoreEntryType.BLANK, ""))
         else:
-            type = GitignoreEntryType.PATH
-        result.entries.append(GitignoreEntry(type, line))
+            gitignore.entries.append(GitignoreEntry(GitignoreEntryType.PATH, line))
 
-    return result
+    return gitignore
 
 
 def sort_gitignore(gitignore: GitignoreFile, sort_paths: bool = True, sort_groups: bool = False) -> GitignoreFile:
