@@ -8,6 +8,8 @@ from kraken.core.lib.render_file_task import RenderFileTask
 
 from ..gitignore import GitignoreFile, parse_gitignore, sort_gitignore
 
+# TODO(david-luke): ch2. The apply fn should save a copy of the replaced file .gitignore.old
+
 
 class GitignoreSyncTask(RenderFileTask):
     """This task ensures that a given set of entries are present in a `.gitignore` file.
@@ -24,8 +26,9 @@ class GitignoreSyncTask(RenderFileTask):
     file: Property[Path]
     sort_paths: Property[bool] = Property.config(default=True)
     sort_groups: Property[bool] = Property.config(default=False)
+    # TODO(david-luke): ch2 Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)
 
-    _paths: Dict[Optional[str], List[str]]
+    _paths: Dict[Optional[str], List[str]]  # TODO(david-luke): ch1 deprecate
 
     def __init__(self, name: str, project: Project) -> None:
         super().__init__(name, project)

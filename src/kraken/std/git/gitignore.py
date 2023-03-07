@@ -35,6 +35,14 @@ class GitignoreEntry(NamedTuple):
 
 class GitignoreFile(NamedTuple):
     entries: list[GitignoreEntry]
+    # TODO(david-luke): ch2     - generated_content_hash
+    # TODO(david-luke): ch2     - generated_content_token_list
+    # TODO(david-luke): ch2     - generated_content_hash
+
+    # TODO(david-luke): ch2     - refresh_gen_content
+    # TODO(david-luke): ch2     - refresh_gen_content_hash
+    # TODO(david-luke): ch2     - fn to validate the hash
+    # TODO(david-luke): ch2     - also compare the token list.
 
     def find_comment(self, comment: str) -> int | None:
         return next(
@@ -78,6 +86,10 @@ def parse_gitignore(file: TextIO | Path | str) -> GitignoreFile:
         with file.open() as fp:
             return parse_gitignore(fp)
 
+    # TODO(david-luke): ch2     - - Extend parser to cover
+        # - generated_content
+        # - generated_content_token_list
+        # - generated_content_hash
     result = GitignoreFile([])
     for line in file:
         line = line.rstrip("\n")
