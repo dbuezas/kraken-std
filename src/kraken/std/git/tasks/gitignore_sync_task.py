@@ -26,8 +26,6 @@ class GitignoreSyncTask(RenderFileTask):
     file: Property[Path]
     sort_paths: Property[bool] = Property.config(default=True)
     sort_groups: Property[bool] = Property.config(default=False)
-    tokens: Property[Sequence[str]]
-    # TODO(david-luke): ch2 Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)
 
     def __init__(self, name: str, project: Project) -> None:
         super().__init__(name, project)
@@ -39,7 +37,7 @@ class GitignoreSyncTask(RenderFileTask):
             gitignore = parse_gitignore(file)
         else:
             gitignore = GitignoreFile([])
-
+        gitignore.refresh_generated_content()
         gitignore = sort_gitignore(gitignore, self.sort_paths.get(), self.sort_groups.get())
 
         return gitignore.render()

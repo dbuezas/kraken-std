@@ -14,7 +14,8 @@ import httpx
 
 GITIGNORE_API_URL = "https://www.toptal.com/developers/gitignore/api/"
 GENERATED_GUARD_START = "### START-GENERATED-CONTENT [HASH: {hash}]"
-GENERATED_GUARD_START_REGEX = "### START-GENERATED-CONTENT \[HASH: (?<hash>.*)\]"
+GENERATED_GUARD_START_REGEX = "### START-GENERATED-CONTENT \[HASH: (.*)\]"
+GENERATED_TOKENS = "### TOKENS: {tokens}"
 GENERATED_TOKEN_REGEX = "### TOKENS: \[(.*)\]"
 GENERATED_GUARD_DESCRIPTION = """\
 #
@@ -75,19 +76,14 @@ class GitignoreEntry(NamedTuple):
         return self.type == GitignoreEntryType.PATH
 
 
-class GitignoreFile(NamedTuple):
+class GitignoreFile():
     entries: list[GitignoreEntry]
-    generated_content: str
-    generated_content_hash: str
-    generated_content_tokens: Sequence[str]
-    # TODO(david-luke): ch2     - generated_content_hash
-    # TODO(david-luke): ch2     - generated_content_token_list
-    # TODO(david-luke): ch2     - generated_content_hash
+    generated_content: str = None
+    generated_content_hash: str = None
+    generated_content_tokens: Sequence[str] = None
 
-    # TODO(david-luke): ch2     - refresh_gen_content
-    # TODO(david-luke): ch2     - refresh_gen_content_hash
-    # TODO(david-luke): ch2     - fn to validate the hash
-    # TODO(david-luke): ch2     - also compare the token list to the input.
+    def __init__(self, entries: list[GitignoreEntry]):
+        self.entries = entries
 
     def find_comment(self, comment: str) -> int | None:
         return next(
@@ -121,19 +117,32 @@ class GitignoreFile(NamedTuple):
             raise ValueError(f'"{path}" not in GitignoreFile')
 
     def render(self) -> str:
-        return "\n".join(map(str, self.entries)) + "\n"
+        self.refresh_generated_content()  # TODO(david): remove
+        self.refresh_hash()  # TODO(david): remove
+        guarded_section = [
+            GENERATED_GUARD_START.format(hash=self.generated_content_hash),
+            GENERATED_TOKENS.format(tokens=', '.join(self.generated_content_tokens)),
+            GENERATED_GUARD_DESCRIPTION,
+            self.generated_content,
+            GENERATED_GUARD_END,
+        ]
+        print(guarded_section)
+        user_content = map(str, self.entries)
+        print(user_content)
+        return "\n".join(guarded_section) + "\n" + "\n".join(user_content) + "\n"
 
     def refresh_generated_content(self, tokens=DEFAULT_TOKENS) -> None:
-        result = httpx.get(GITIGNORE_API_URL + tokens.join(','))
+        result = httpx.get(GITIGNORE_API_URL + ','.join(tokens))
         # TODO(david): error handling / nice task status erros
         assert (result.status_code == 200)
 
         # TODO(david): A bit to much reliance on side effects. Review.
+
         self.generated_content_tokens = tokens
         self.generated_content = result.text
 
     def refresh_hash(self) -> None:
-        self.generated_content_hash = hashlib.sha256(self.generated_content)
+        self.generated_content_hash = hashlib.sha256(self.generated_content.encode('utf-8')).hexdigest()
 
     def validate_generated_content(self, tokens=DEFAULT_TOKENS) -> bool:
         hash_match = self.generated_content_tokens == tokens
@@ -158,7 +167,7 @@ def parse_gitignore(file: TextIO | Path | str) -> GitignoreFile:
             inside_guard = True
         elif line == GENERATED_GUARD_END:
             inside_guard = False
-            gitignore.generated_content = generated_content.join('\n')
+            gitignore.generated_content = '\n'.join(generated_content)
         elif inside_guard:
             generated_content += [line]
             if token_match := re.match(GENERATED_TOKEN_REGEX, line):

@@ -8,7 +8,7 @@ Action plan
 --- we have two tasks that don't do anything ---
 # Chapter 2 - Apply
 
-1. GitignoreFile class, add
+[x]1. GitignoreFile class, add
 [x] - generated_content instance property
 [x] - generated_content_token_list
 [x] - generated_content_hash 
@@ -20,8 +20,9 @@ Action plan
 [x]        - generated_content
 [x]        - generated_content_token_list
 [x]        - generated_content_hash 
-5. Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)
-6. Connect Apply task to GitignoreFile ...
+~5. Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)~
+[x]6. Connect Apply task to GitignoreFile ...
+[ ] fix generation
 7. The apply fn should save a copy of the replaced file .gitignore.old
 --- Apply task is ready ---
 

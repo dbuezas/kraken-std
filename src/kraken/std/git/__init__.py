@@ -16,6 +16,8 @@ GITIGNORE_TASK_NAME = "gitignore"
 
 
 def gitignore(
+    trash1,
+    trash2,
     *,
     project: Project | None = None,
 ) -> GitignoreSyncTask:
