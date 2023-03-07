@@ -42,7 +42,7 @@ class GitignoreFile(NamedTuple):
     # TODO(david-luke): ch2     - refresh_gen_content
     # TODO(david-luke): ch2     - refresh_gen_content_hash
     # TODO(david-luke): ch2     - fn to validate the hash
-    # TODO(david-luke): ch2     - also compare the token list.
+    # TODO(david-luke): ch2     - also compare the token list to the input.
 
     def find_comment(self, comment: str) -> int | None:
         return next(
