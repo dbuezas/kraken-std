@@ -23,7 +23,7 @@ Action plan
 ~5. Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)~
 [x]6. Connect Apply task to GitignoreFile ...
 [ ] fix generation
-7. The apply fn should save a copy of the replaced file .gitignore.old
+[x] 7. The apply fn should save a copy of the replaced file .gitignore.old
 --- Apply task is ready ---
 
 # Chapter 3 - Check

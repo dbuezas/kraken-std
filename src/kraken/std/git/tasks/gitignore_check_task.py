@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Sequence
 from kraken.core.api import Project, Property
 from kraken.core.lib.render_file_task import RenderFileTask
 
-from ..gitignore import GitignoreFile, parse_gitignore, sort_gitignore
+from ..gitignore import GitignoreFile, parse_gitignore
 
 # TODO(david-luke): ch2. The apply fn should save a copy of the replaced file .gitignore.old
 

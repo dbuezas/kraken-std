@@ -27,27 +27,27 @@ GENERATED_GUARD_END = "### END-GENERATED-CONTENT"
 
 DEFAULT_TOKENS = [
     # Platforms
-    'macos',
-    'linux',
-    'windows',
+    "macos",
+    "linux",
+    "windows",
     # IDEs
-    'visualstudiocode',
-    'vim',
-    'emacs',
-    'clion',
-    'intellij',
-    'pycharm',
-    'jupyternotebooks',
+    "visualstudiocode",
+    "vim",
+    "emacs",
+    "clion",
+    "intellij",
+    "pycharm",
+    "jupyternotebooks",
     # Tooling
-    'git',
-    'gcov',
-    'node',
-    'yarn',
+    "git",
+    "gcov",
+    "node",
+    "yarn",
     # Languages
-    'python',
-    'rust',
-    'react',
-    'matlab'
+    "python",
+    "rust",
+    "react",
+    "matlab",
 ]
 
 
@@ -76,7 +76,7 @@ class GitignoreEntry(NamedTuple):
         return self.type == GitignoreEntryType.PATH
 
 
-class GitignoreFile():
+class GitignoreFile:
     entries: list[GitignoreEntry]
     generated_content: str = None
     generated_content_hash: str = None
@@ -117,24 +117,20 @@ class GitignoreFile():
             raise ValueError(f'"{path}" not in GitignoreFile')
 
     def render(self) -> str:
-        self.refresh_generated_content()  # TODO(david): remove
-        self.refresh_hash()  # TODO(david): remove
         guarded_section = [
             GENERATED_GUARD_START.format(hash=self.generated_content_hash),
-            GENERATED_TOKENS.format(tokens=', '.join(self.generated_content_tokens)),
+            GENERATED_TOKENS.format(tokens=", ".join(self.generated_content_tokens)),
             GENERATED_GUARD_DESCRIPTION,
             self.generated_content,
             GENERATED_GUARD_END,
         ]
-        print(guarded_section)
         user_content = map(str, self.entries)
-        print(user_content)
         return "\n".join(guarded_section) + "\n" + "\n".join(user_content) + "\n"
 
     def refresh_generated_content(self, tokens=DEFAULT_TOKENS) -> None:
-        result = httpx.get(GITIGNORE_API_URL + ','.join(tokens))
+        result = httpx.get(GITIGNORE_API_URL + ",".join(tokens))
         # TODO(david): error handling / nice task status erros
-        assert (result.status_code == 200)
+        assert result.status_code == 200
 
         # TODO(david): A bit to much reliance on side effects. Review.
 
@@ -142,12 +138,56 @@ class GitignoreFile():
         self.generated_content = result.text
 
     def refresh_hash(self) -> None:
-        self.generated_content_hash = hashlib.sha256(self.generated_content.encode('utf-8')).hexdigest()
+        self.generated_content_hash = hashlib.sha256(self.generated_content.encode("utf-8")).hexdigest()
 
     def validate_generated_content(self, tokens=DEFAULT_TOKENS) -> bool:
         hash_match = self.generated_content_tokens == tokens
         tokens_match = self.generated_content_hash == hashlib.sha256(self.generated_content)
         return hash_match and tokens_match
+
+    def sort_gitignore(self, sort_paths: bool = True, sort_groups: bool = False) -> GitignoreFile:
+        """Sorts the entries in the specified gitignore file, keeping paths under a common comment block grouped.
+        Will also get rid of any extra blanks.
+
+        :param gitignore: The input to sort.
+        :param sort_paths: Whether to sort paths (default: True).
+        :param sort_groups: Whether to sort groups among themselves, not just paths within groups (default: False).
+        :return: A new, sorted gitignore file.
+        """
+
+        class Group(NamedTuple):
+            comments: list[str]
+            paths: list[str]
+
+        # List of (comments, paths).
+        groups: list[Group] = [Group([], [])]
+
+        for entry in self.entries:
+            if entry.is_path():
+                groups[-1].paths.append(entry.value)
+            elif entry.is_comment():
+                # If we already have paths in the current group, we open a new group.
+                if groups[-1].paths:
+                    groups.append(Group([entry.value], []))
+                # Otherwise we append the comment to the group.
+                else:
+                    groups[-1].comments.append(entry.value)
+
+        if sort_groups:
+            groups.sort(key=lambda g: "\n".join(g.comments).lower())
+
+        self.entries = []
+        for group in groups:
+            if sort_paths:
+                group.paths.sort(key=str.lower)
+            for comment in group.comments:
+                self.add_comment(comment)
+            for path in group.paths:
+                self.add_path(path)
+            self.add_blank()
+
+        if self.entries and self.entries[-1].is_blank():
+            self.entries.pop()
 
 
 def parse_gitignore(file: TextIO | Path | str) -> GitignoreFile:
@@ -167,11 +207,11 @@ def parse_gitignore(file: TextIO | Path | str) -> GitignoreFile:
             inside_guard = True
         elif line == GENERATED_GUARD_END:
             inside_guard = False
-            gitignore.generated_content = '\n'.join(generated_content)
+            gitignore.generated_content = "\n".join(generated_content)
         elif inside_guard:
             generated_content += [line]
             if token_match := re.match(GENERATED_TOKEN_REGEX, line):
-                gitignore.generated_content_tokens = token_match.group(1).split(', ')
+                gitignore.generated_content_tokens = token_match.group(1).split(", ")
         elif line.startswith("#"):
             gitignore.entries.append(GitignoreEntry(GitignoreEntryType.COMMENT, line[1:].lstrip()))
         elif not line.strip():
@@ -180,50 +220,3 @@ def parse_gitignore(file: TextIO | Path | str) -> GitignoreFile:
             gitignore.entries.append(GitignoreEntry(GitignoreEntryType.PATH, line))
 
     return gitignore
-
-
-def sort_gitignore(gitignore: GitignoreFile, sort_paths: bool = True, sort_groups: bool = False) -> GitignoreFile:
-    """Sorts the entries in the specified gitignore file, keeping paths under a common comment block grouped.
-    Will also get rid of any extra blanks.
-
-    :param gitignore: The input to sort.
-    :param sort_paths: Whether to sort paths (default: True).
-    :param sort_groups: Whether to sort groups among themselves, not just paths within groups (default: False).
-    :return: A new, sorted gitignore file.
-    """
-
-    class Group(NamedTuple):
-        comments: list[str]
-        paths: list[str]
-
-    # List of (comments, paths).
-    groups: list[Group] = [Group([], [])]
-
-    for entry in gitignore.entries:
-        if entry.is_path():
-            groups[-1].paths.append(entry.value)
-        elif entry.is_comment():
-            # If we already have paths in the current group, we open a new group.
-            if groups[-1].paths:
-                groups.append(Group([entry.value], []))
-            # Otherwise we append the comment to the group.
-            else:
-                groups[-1].comments.append(entry.value)
-
-    if sort_groups:
-        groups.sort(key=lambda g: "\n".join(g.comments).lower())
-
-    new = GitignoreFile([])
-    for group in groups:
-        if sort_paths:
-            group.paths.sort(key=str.lower)
-        for comment in group.comments:
-            new.add_comment(comment)
-        for path in group.paths:
-            new.add_path(path)
-        new.add_blank()
-
-    if new.entries and new.entries[-1].is_blank():
-        new.entries.pop()
-
-    return new
