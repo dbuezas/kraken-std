@@ -16,7 +16,7 @@ GITIGNORE_TASK_NAME = "gitignore"
 
 
 def gitignore(
-    trash1,
+    trash1,  # TODO(david): upgrade gitignore callers and remove these lines
     trash2,
     *,
     project: Project | None = None,
