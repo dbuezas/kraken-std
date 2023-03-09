@@ -24,7 +24,9 @@ GENERATED_GUARD_DESCRIPTION = """\
 # -------------------------------------------------------------------------------------------------"""
 GENERATED_GUARD_END = "### END-GENERATED-CONTENT"
 
-DEFAULT_TOKENS = [
+GITIGNORE_TASK_NAME = "gitignore"
+
+DEFAULT_GITIGNORE_TOKENS = [
     # Platforms
     "macos",
     "linux",
@@ -125,7 +127,7 @@ class GitignoreFile:
         user_content = map(str, self.entries)
         return "\n".join(guarded_section) + "\n" + "\n".join(user_content) + "\n"
 
-    def refresh_generated_content(self, tokens=DEFAULT_TOKENS) -> None:
+    def refresh_generated_content(self, tokens=DEFAULT_GITIGNORE_TOKENS) -> None:
         result = httpx.get(GITIGNORE_API_URL + ",".join(tokens))
         # TODO(david): error handling / nice task status erros
         assert result.status_code == 200
@@ -136,7 +138,7 @@ class GitignoreFile:
                 GENERATED_TOKENS.format(tokens=", ".join(self.generated_content_tokens)),
                 "",
                 # TODO(lukeb): This feels hacky - what if the api returns a different string which we need to deal with
-                result.text.replace("\r\r", "\n"),
+                result.text.replace("\r", ""),
                 "# -------------------------------------------------------------------------------------------------",
             ]
         )
@@ -173,13 +175,14 @@ class GitignoreFile:
         # The hashes should now match between storage states. Is there a better way to catch these cases? What if there are other
         # cases we haven't come across yet?
 
-    def refresh_hash(self) -> None:
+    def refresh_generated_content_hash(self) -> None:
         self.generated_content_hash = hashlib.sha256(self.generated_content.encode("utf-8")).hexdigest()
 
-    def validate_tokens(self, tokens=DEFAULT_TOKENS) -> bool:  # TODO(david): revise naming
+    def check_generated_content_tokens(self, tokens=DEFAULT_GITIGNORE_TOKENS) -> bool:  # TODO(david): revise naming
+        print(tokens)
         return self.generated_content_tokens == tokens
 
-    def validate_generated_content_hash(self) -> bool:
+    def check_generated_content_hash(self) -> bool:
         return self.generated_content_hash == hashlib.sha256(self.generated_content.encode("utf-8")).hexdigest()
 
     def sort_gitignore(self, sort_paths: bool = True, sort_groups: bool = False) -> GitignoreFile:
@@ -226,34 +229,34 @@ class GitignoreFile:
         if self.entries and self.entries[-1].is_blank():
             self.entries.pop()
 
+    @staticmethod
+    def parse_file(file: TextIO | Path | str) -> GitignoreFile:
+        if isinstance(file, str):
+            return GitignoreFile.parse_file(io.StringIO(file))
+        elif isinstance(file, PathLike):
+            with file.open() as fp:
+                return GitignoreFile.parse_file(fp)
 
-def parse_gitignore(file: TextIO | Path | str) -> GitignoreFile:
-    if isinstance(file, str):
-        return parse_gitignore(io.StringIO(file))
-    elif isinstance(file, PathLike):
-        with file.open() as fp:
-            return parse_gitignore(fp)
+        gitignore = GitignoreFile([])
+        inside_guard = False
+        generated_content = []
+        for line in file:
+            line = line.rstrip("\n")  # TODO(david) this creates hash mismatches
+            if match := re.match(GENERATED_GUARD_START_REGEX, line):
+                gitignore.generated_content_hash = match.group(1)
+                inside_guard = True
+            elif line == GENERATED_GUARD_END:
+                inside_guard = False
+                gitignore.generated_content = "\n".join(generated_content)
+            elif inside_guard:
+                generated_content += [line]
+                if token_match := re.match(GENERATED_TOKEN_REGEX, line):
+                    gitignore.generated_content_tokens = token_match.group(1).split(", ")
+            elif line.startswith("#"):
+                gitignore.entries.append(GitignoreEntry(GitignoreEntryType.COMMENT, line[1:].lstrip()))
+            elif not line.strip():
+                gitignore.entries.append(GitignoreEntry(GitignoreEntryType.BLANK, ""))
+            else:
+                gitignore.entries.append(GitignoreEntry(GitignoreEntryType.PATH, line))
 
-    gitignore = GitignoreFile([])
-    inside_guard = False
-    generated_content = []
-    for line in file:
-        line = line.rstrip("\n")  # TODO(david) this creates hash mismatches
-        if match := re.match(GENERATED_GUARD_START_REGEX, line):
-            gitignore.generated_content_hash = match.group(1)
-            inside_guard = True
-        elif line == GENERATED_GUARD_END:
-            inside_guard = False
-            gitignore.generated_content = "\n".join(generated_content)
-        elif inside_guard:
-            generated_content += [line]
-            if token_match := re.match(GENERATED_TOKEN_REGEX, line):
-                gitignore.generated_content_tokens = token_match.group(1).split(", ")
-        elif line.startswith("#"):
-            gitignore.entries.append(GitignoreEntry(GitignoreEntryType.COMMENT, line[1:].lstrip()))
-        elif not line.strip():
-            gitignore.entries.append(GitignoreEntry(GitignoreEntryType.BLANK, ""))
-        else:
-            gitignore.entries.append(GitignoreEntry(GitignoreEntryType.PATH, line))
-
-    return gitignore
+        return gitignore

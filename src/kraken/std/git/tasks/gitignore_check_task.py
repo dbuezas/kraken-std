@@ -1,16 +1,13 @@
 from __future__ import annotations
-from ..gitignore import GitignoreFile, parse_gitignore
+from ..gitignore import GITIGNORE_TASK_NAME, DEFAULT_GITIGNORE_TOKENS, GitignoreFile
 
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
-from kraken.core import Project, Property, Supplier, Task, TaskStatus
+from typing import Sequence
+from kraken.core import Project, Property, Task, TaskStatus
 from kraken.core.api import Project, Property
-from kraken.core.lib.render_file_task import RenderFileTask
 from termcolor import colored
 
 from kraken.common.path import try_relative_to
-
-GITIGNORE_TASK_NAME = 'gitinogre FIX ME'  # TODO(david): share this with __init__.py
 
 
 def as_bytes(v: str | bytes, encoding: str) -> bytes:
@@ -21,10 +18,10 @@ def as_bytes(v: str | bytes, encoding: str) -> bytes:
 
 
 class GitignoreCheckTask(Task):
-    """
-    """
+    """ """
 
     file: Property[Path]
+    tokens: Property[Sequence[str]] = Property.config(default=DEFAULT_GITIGNORE_TOKENS)
     # TODO(david-luke): ch2 Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)
 
     def __init__(self, name: str, project: Project) -> None:
@@ -42,9 +39,12 @@ class GitignoreCheckTask(Task):
             return TaskStatus.failed(f'file "{file_fmt}" does not exist{message_suffix}')
         if not file.is_file():
             return TaskStatus.failed(f'"{file}" is not a file')
-        if not parse_gitignore(file).validate_tokens():
-            return TaskStatus.failed(f'file "{file_fmt}" is not up to date{message_suffix}')
-        if not parse_gitignore(file).validate_generated_content_hash():
-            return TaskStatus.failed(f'guarded section of file "{file_fmt}" was modified{message_suffix}')
+        gitignore = GitignoreFile.parse_file(file)
+        if not gitignore.check_generated_content_tokens(tokens=self.tokens.get()):
+            return TaskStatus.failed(
+                f'file "{file_fmt}" does not include latest set of generated entries from gitignore.io{message_suffix}'
+            )
+        if not gitignore.check_generated_content_hash():
+            return TaskStatus.failed(f'generated section of file "{file_fmt}" was modified{message_suffix}')
 
-        return TaskStatus.succeeded(f'file "{file_fmt}" is up to date')
+        return TaskStatus.up_to_date(f'file "{file_fmt}" is up to date')
