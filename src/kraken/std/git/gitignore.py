@@ -91,14 +91,15 @@ class GitignoreFile:
             raise ValueError(f'"{path}" not in GitignoreFile')
 
     def render(self) -> str:
-        guarded_section = [
+        guarded_section = "\n".join([
             GENERATED_GUARD_START.format(hash=self.generated_content_hash),
-            self.generated_content,
-            GENERATED_GUARD_END,
-            "",
-        ]
-        user_content = map(str, self.entries)
-        return "\n".join(guarded_section) + "\n" + "\n".join(user_content) + "\n"
+            self.generated_content + GENERATED_GUARD_END,
+        ])
+        user_content = "\n".join(map(str, self.entries))
+        from pathlib import Path
+        fff = Path('gen.txt')
+        fff.write_bytes(self.generated_content.encode('utf-8'))
+        return guarded_section + "\n" + user_content + "\n"
 
     def refresh_generated_content(self, tokens: Sequence[str]) -> None:
         result = httpx.get(GITIGNORE_API_URL + ",".join(tokens))
@@ -110,9 +111,9 @@ class GitignoreFile:
                 GENERATED_GUARD_DESCRIPTION,
                 GENERATED_TOKENS.format(tokens=", ".join(self.generated_content_tokens)),
                 "",
-                # TODO(lukeb): This feels hacky - what if the api returns a different string which we need to deal with
-                result.text.replace("\r", ""),
+                result.text,
                 "# -------------------------------------------------------------------------------------------------",
+                "",
             ]
         )
         # tldr; Line ending weirdness when writing to disk means hashes don't match
@@ -206,22 +207,25 @@ class GitignoreFile:
         if isinstance(file, str):
             return GitignoreFile.parse(io.StringIO(file))
         elif isinstance(file, PathLike):
-            with file.open() as fp:
+            with file.open(newline='') as fp:
                 return GitignoreFile.parse(fp)
 
         gitignore = GitignoreFile([])
         inside_guard = False
         generated_content = []
-        for line in file:
-            line = line.rstrip("\n")  # TODO(david) this creates hash mismatches
+        for raw_line in file:
+            line = raw_line.rstrip("\n")
             if match := re.match(GENERATED_GUARD_START_REGEX, line):
                 gitignore.generated_content_hash = match.group(1)
                 inside_guard = True
             elif line == GENERATED_GUARD_END:
                 inside_guard = False
-                gitignore.generated_content = "\n".join(generated_content)
+                gitignore.generated_content = "".join(generated_content)
+                from pathlib import Path
+                fff = Path('gen.txt')
+                fff.write_bytes(gitignore.generated_content.encode('utf-8'))
             elif inside_guard:
-                generated_content += [line]
+                generated_content += [raw_line]
                 if token_match := re.match(GENERATED_TOKEN_REGEX, line):
                     gitignore.generated_content_tokens = token_match.group(1).split(", ")
             elif line.startswith("#"):
