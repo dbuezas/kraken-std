@@ -95,58 +95,28 @@ class GitignoreFile:
             GENERATED_GUARD_START.format(hash=self.generated_content_hash),
             self.generated_content,
             GENERATED_GUARD_END,
-            "",
         ]
         user_content = map(str, self.entries)
         return "\n".join(guarded_section) + "\n" + "\n".join(user_content) + "\n"
 
     def refresh_generated_content(self, tokens: Sequence[str]) -> None:
         result = httpx.get(GITIGNORE_API_URL + ",".join(tokens))
-        # TODO(david): error handling / nice task status erros
         assert result.status_code == 200
+
+        # MacOS's Icon file ends with a double \r, but this is removed by vscode upon saving.
+        # To avoid a constant back and forth between user and sync tasks,
+        # all \r chars are removed proactively
+        fetched_content = result.text.replace('\r', '')
         self.generated_content_tokens = tokens
         self.generated_content = "\n".join(
             [
                 GENERATED_GUARD_DESCRIPTION,
                 GENERATED_TOKENS.format(tokens=", ".join(self.generated_content_tokens)),
                 "",
-                # TODO(lukeb): This feels hacky - what if the api returns a different string which we need to deal with
-                result.text,
+                fetched_content,
                 "# -------------------------------------------------------------------------------------------------",
             ]
         )
-        # tldr; Line ending weirdness when writing to disk means hashes don't match
-
-        # It appears that the return text from gitignore.io can include \r\r (currently only around the MacOS Icon section)
-        # When these characters are stored on disk in the gitignore they become a single \n character. This means that when
-        # the file is recalled and rehashed we get a different value. Example code demonstatring this below:
-
-        # import httpx
-        # import hashlib
-        # result = httpx.get(
-        #     "https://www.toptal.com/developers/gitignore/api/macos,linux,windows,visualstudiocode,vim,emacs,clion,intellij,pycharm,jupyternotebooks,git,gcov,node,yarn,python,rust,react,matlab"
-        # )
-        # original_str = result.text
-
-        # apply_file_write = open("apply-content.txt", "w")
-        # apply_file_write.write(original_str)
-
-        # apply_file_read = open("apply-content.txt", "r")
-        # recovered_str = apply_file_read.read()
-
-        # print("Original Hash :", hashlib.sha256(original_str.encode("utf-8")).hexdigest())
-        # print("Recovered Hash:", hashlib.sha256(recovered_str.encode("utf-8")).hexdigest())
-
-        # This results in a different hash just from storing and reading from disk. Comparing the raw bytes of the string before
-        # and after storage it appears that a single difference between \r\r => \n is repsonsible for the hash mismatch.
-
-        # The hacky solution for now is to manually replace \r\r with \n prior to hashing/storage so that nothing changes between
-        # disk write/read. This can be achieved in the exmaple above by replacing the following line
-
-        # original_str = result.text -> original_str = result.text.replace("\r\r", "\n")
-
-        # The hashes should now match between storage states. Is there a better way to catch these cases? What if there are other
-        # cases we haven't come across yet?
 
     def refresh_generated_content_hash(self) -> None:
         self.generated_content_hash = hashlib.sha256(self.generated_content.encode("utf-8")).hexdigest()
@@ -189,6 +159,7 @@ class GitignoreFile:
             groups.sort(key=lambda g: "\n".join(g.comments).lower())
 
         self.entries = []
+        self.add_blank()  # separate GENERATED from USER content
         for group in groups:
             if sort_paths:
                 group.paths.sort(key=str.lower)
@@ -206,29 +177,36 @@ class GitignoreFile:
         if isinstance(file, str):
             return GitignoreFile.parse(io.StringIO(file))
         elif isinstance(file, PathLike):
-            with file.open(newline="\n") as fp:
+            with file.open() as fp:
                 return GitignoreFile.parse(fp)
 
+        class State(enum.Enum):
+            USER = enum.auto()
+            GENERATED = enum.auto()
+
         gitignore = GitignoreFile([])
-        inside_guard = False
+
+        state = State.USER
         generated_content = []
         for line in file:
-            line = line.rstrip("\n")  # TODO(david) this creates hash mismatches
-            if match := re.match(GENERATED_GUARD_START_REGEX, line):
-                gitignore.generated_content_hash = match.group(1)
-                inside_guard = True
-            elif line == GENERATED_GUARD_END:
-                inside_guard = False
-                gitignore.generated_content = "\n".join(generated_content)
-            elif inside_guard:
-                generated_content += [line]
-                if token_match := re.match(GENERATED_TOKEN_REGEX, line):
-                    gitignore.generated_content_tokens = token_match.group(1).split(", ")
-            elif line.startswith("#"):
-                gitignore.entries.append(GitignoreEntry(GitignoreEntryType.COMMENT, line[1:].lstrip()))
-            elif not line.strip():
-                gitignore.entries.append(GitignoreEntry(GitignoreEntryType.BLANK, ""))
-            else:
-                gitignore.entries.append(GitignoreEntry(GitignoreEntryType.PATH, line))
+            line = line.rstrip("\n")
+            if state == State.USER:
+                if match := re.match(GENERATED_GUARD_START_REGEX, line):
+                    gitignore.generated_content_hash = match.group(1)
+                    state = State.GENERATED
+                elif line.startswith("#"):
+                    gitignore.entries.append(GitignoreEntry(GitignoreEntryType.COMMENT, line[1:].lstrip()))
+                elif not line.strip():
+                    gitignore.entries.append(GitignoreEntry(GitignoreEntryType.BLANK, ""))
+                else:
+                    gitignore.entries.append(GitignoreEntry(GitignoreEntryType.PATH, line))
+            else:  # state == State.GENERATED
+                if line == GENERATED_GUARD_END:
+                    state = State.USER
+                    gitignore.generated_content = "\n".join(generated_content)
+                else:
+                    generated_content += [line]
+                    if token_match := re.match(GENERATED_TOKEN_REGEX, line):
+                        gitignore.generated_content_tokens = token_match.group(1).split(", ")
 
         return gitignore
