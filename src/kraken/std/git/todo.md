@@ -20,23 +20,24 @@ Action plan
 [x]        - generated_content
 [x]        - generated_content_token_list
 [x]        - generated_content_hash 
-~5. Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)~
+[x] 5. Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)
 [x]6. Connect Apply task to GitignoreFile ...
-[ ] fix generation
+[x] fix generation
 [x] 7. The apply fn should save a copy of the replaced file .gitignore.old
 --- Apply task is ready ---
 
 # Chapter 3 - Check
-1. Create dedicated gitignore_check_task
-2. Make sure __init__/gitignore adds the check task to the check group
-3. call gitignorefile.validate_hash() and return all TaskStatus variations
-3. compare tokens list
+[x] 1. Create dedicated gitignore_check_task
+[x] 2. Make sure __init__/gitignore adds the check task to the check group
+[x] 3. call gitignorefile.validate_hash() and return all TaskStatus variations
+[x] 3. compare tokens list
 
 # Chapter 4 - Tidy up
 [x] const file
 [x] revisit \r with other write, read file
 [x] parse_file, rename parse
-[ ] evaluate not inheriting from RenderFileTask
+[x] evaluate not inheriting from RenderFileTask
+[ ] check if RenderFileTask used to do any extra work (like creating a directory, etc)
 [x] ensure check task validates gitignore sorting rules
 [ ] handle the exceptional case of not having an END_GUARD line (it crashes)
 
