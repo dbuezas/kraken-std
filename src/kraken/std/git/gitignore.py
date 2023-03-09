@@ -111,7 +111,7 @@ class GitignoreFile:
                 GENERATED_TOKENS.format(tokens=", ".join(self.generated_content_tokens)),
                 "",
                 # TODO(lukeb): This feels hacky - what if the api returns a different string which we need to deal with
-                result.text.replace("\r", ""),
+                result.text,
                 "# -------------------------------------------------------------------------------------------------",
             ]
         )
@@ -206,7 +206,7 @@ class GitignoreFile:
         if isinstance(file, str):
             return GitignoreFile.parse(io.StringIO(file))
         elif isinstance(file, PathLike):
-            with file.open() as fp:
+            with file.open(newline="\n") as fp:
                 return GitignoreFile.parse(fp)
 
         gitignore = GitignoreFile([])
