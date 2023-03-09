@@ -7,7 +7,7 @@ from kraken.core.api import Project, Property, TaskStatus
 from kraken.core.lib.render_file_task import RenderFileTask
 from kraken.core.lib.check_file_contents_task import as_bytes
 
-from ..gitignore import GitignoreFile, DEFAULT_GITIGNORE_TOKENS
+from ..gitignore import GitignoreFile
 
 
 # TODO(david-luke): ch2. The apply fn should save a copy of the replaced file .gitignore.old
@@ -28,7 +28,7 @@ class GitignoreSyncTask(RenderFileTask):
     file: Property[Path]
     sort_paths: Property[bool] = Property.config(default=True)
     sort_groups: Property[bool] = Property.config(default=False)
-    tokens: Property[Sequence[str]] = Property.config(default=DEFAULT_GITIGNORE_TOKENS)
+    tokens: Property[Sequence[str]]
 
     def __init__(self, name: str, project: Project) -> None:
         super().__init__(name, project)
@@ -57,7 +57,7 @@ class GitignoreSyncTask(RenderFileTask):
 
     def generate_file_contents(self, file: Path) -> str | bytes:
         if file.exists():
-            gitignore = GitignoreFile.parse_file(file)
+            gitignore = GitignoreFile.parse(file)
         else:
             gitignore = GitignoreFile([])
         gitignore.refresh_generated_content(tokens=self.tokens.get())

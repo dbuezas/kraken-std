@@ -6,7 +6,7 @@ from typing import Optional, Sequence, cast
 
 from kraken.core.api import Project
 
-from .gitignore import GITIGNORE_TASK_NAME, DEFAULT_GITIGNORE_TOKENS
+from .tasks.const import GITIGNORE_TASK_NAME, DEFAULT_GITIGNORE_TOKENS
 from .tasks.gitignore_sync_task import GitignoreSyncTask
 from .tasks.gitignore_check_task import GitignoreCheckTask
 from .version import GitVersion, git_describe

@@ -1,5 +1,6 @@
 from __future__ import annotations
-from ..gitignore import GITIGNORE_TASK_NAME, DEFAULT_GITIGNORE_TOKENS, GitignoreFile
+from ..gitignore import GitignoreFile
+from .const import GITIGNORE_TASK_NAME
 
 from pathlib import Path
 from typing import Sequence
@@ -14,15 +15,11 @@ def as_bytes(v: str | bytes, encoding: str) -> bytes:
     return v.encode(encoding) if isinstance(v, str) else v
 
 
-# TODO(david-luke): ch2. The apply fn should save a copy of the replaced file .gitignore.old
-
-
 class GitignoreCheckTask(Task):
     """ """
 
     file: Property[Path]
-    tokens: Property[Sequence[str]] = Property.config(default=DEFAULT_GITIGNORE_TOKENS)
-    # TODO(david-luke): ch2 Add a `tokens` parameter to the GitignoreSyncTask constructor (with the standard list as default paramter)
+    tokens: Property[Sequence[str]]
 
     def __init__(self, name: str, project: Project) -> None:
         super().__init__(name, project)
@@ -39,7 +36,7 @@ class GitignoreCheckTask(Task):
             return TaskStatus.failed(f'file "{file_fmt}" does not exist{message_suffix}')
         if not file.is_file():
             return TaskStatus.failed(f'"{file}" is not a file')
-        gitignore = GitignoreFile.parse_file(file)
+        gitignore = GitignoreFile.parse(file)
         if not gitignore.check_generated_content_tokens(tokens=self.tokens.get()):
             return TaskStatus.failed(
                 f'file "{file_fmt}" does not include latest set of generated entries from gitignore.io{message_suffix}'

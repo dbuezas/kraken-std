@@ -24,33 +24,6 @@ GENERATED_GUARD_DESCRIPTION = """\
 # -------------------------------------------------------------------------------------------------"""
 GENERATED_GUARD_END = "### END-GENERATED-CONTENT"
 
-GITIGNORE_TASK_NAME = "gitignore"
-
-DEFAULT_GITIGNORE_TOKENS = [
-    # Platforms
-    "macos",
-    "linux",
-    "windows",
-    # IDEs
-    "visualstudiocode",
-    "vim",
-    "emacs",
-    "clion",
-    "intellij",
-    "pycharm",
-    "jupyternotebooks",
-    # Tooling
-    "git",
-    "gcov",
-    "node",
-    "yarn",
-    # Languages
-    "python",
-    "rust",
-    "react",
-    "matlab",
-]
-
 
 class GitignoreEntryType(enum.Enum):
     COMMENT = enum.auto()
@@ -127,7 +100,7 @@ class GitignoreFile:
         user_content = map(str, self.entries)
         return "\n".join(guarded_section) + "\n" + "\n".join(user_content) + "\n"
 
-    def refresh_generated_content(self, tokens=DEFAULT_GITIGNORE_TOKENS) -> None:
+    def refresh_generated_content(self, tokens: Sequence[str]) -> None:
         result = httpx.get(GITIGNORE_API_URL + ",".join(tokens))
         # TODO(david): error handling / nice task status erros
         assert result.status_code == 200
@@ -178,8 +151,7 @@ class GitignoreFile:
     def refresh_generated_content_hash(self) -> None:
         self.generated_content_hash = hashlib.sha256(self.generated_content.encode("utf-8")).hexdigest()
 
-    def check_generated_content_tokens(self, tokens=DEFAULT_GITIGNORE_TOKENS) -> bool:  # TODO(david): revise naming
-        print(tokens)
+    def check_generated_content_tokens(self, tokens: Sequence[str]) -> bool:
         return self.generated_content_tokens == tokens
 
     def check_generated_content_hash(self) -> bool:
@@ -230,12 +202,12 @@ class GitignoreFile:
             self.entries.pop()
 
     @staticmethod
-    def parse_file(file: TextIO | Path | str) -> GitignoreFile:
+    def parse(file: TextIO | Path | str) -> GitignoreFile:
         if isinstance(file, str):
-            return GitignoreFile.parse_file(io.StringIO(file))
+            return GitignoreFile.parse(io.StringIO(file))
         elif isinstance(file, PathLike):
             with file.open() as fp:
-                return GitignoreFile.parse_file(fp)
+                return GitignoreFile.parse(fp)
 
         gitignore = GitignoreFile([])
         inside_guard = False

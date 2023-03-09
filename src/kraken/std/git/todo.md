@@ -32,3 +32,9 @@ Action plan
 3. call gitignorefile.validate_hash() and return all TaskStatus variations
 3. compare tokens list
 
+# Chapter 4 - Tidy up
+[x] const file
+[] revisit \r with other write, read file
+[x] parse_file, rename parse
+[] evaluate not inheriting from RenderFileTask
+
