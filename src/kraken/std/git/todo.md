@@ -37,7 +37,7 @@ Action plan
 [x] revisit \r with other write, read file
 [x] parse_file, rename parse
 [x] evaluate not inheriting from RenderFileTask
-[ ] check if RenderFileTask used to do any extra work (like creating a directory, etc)
+[x] check if RenderFileTask used to do any extra work (like creating a directory, etc)
 [x] ensure check task validates gitignore sorting rules
-[ ] handle the exceptional case of not having an END_GUARD line (it crashes)
-
+[x] handle the exceptional case of not having an END_GUARD line (it crashes)
+[ ] Figure out how to add missing previous entries that aren't covered by gitignore.io

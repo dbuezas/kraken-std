@@ -6,7 +6,7 @@ import io
 from itertools import islice
 from os import PathLike
 from pathlib import Path
-from typing import Iterable, NamedTuple, TextIO, Sequence
+from typing import Iterable, NamedTuple, TextIO, Sequence, Optional
 import re
 
 import httpx
@@ -23,6 +23,10 @@ GENERATED_GUARD_DESCRIPTION = """\
 # If you need to define custom gitignore rules, add them below
 # -------------------------------------------------------------------------------------------------"""
 GENERATED_GUARD_END = "### END-GENERATED-CONTENT"
+
+
+class GitignoreException(Exception):
+    """Raise for a gitignore parsing/generation exception"""
 
 
 class GitignoreEntryType(enum.Enum):
@@ -50,11 +54,15 @@ class GitignoreEntry(NamedTuple):
         return self.type == GitignoreEntryType.PATH
 
 
+def hash_content(content: str):
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
 class GitignoreFile:
     entries: list[GitignoreEntry]
-    generated_content: str = None
-    generated_content_hash: str = None
-    generated_content_tokens: Sequence[str] = None
+    generated_content: str = ""
+    generated_content_hash: Optional[str] = None
+    generated_content_tokens: Optional[Sequence[str]] = None
 
     def __init__(self, entries: list[GitignoreEntry]):
         self.entries = entries
@@ -101,12 +109,13 @@ class GitignoreFile:
 
     def refresh_generated_content(self, tokens: Sequence[str]) -> None:
         result = httpx.get(GITIGNORE_API_URL + ",".join(tokens))
-        assert result.status_code == 200
+        if result.status_code != 200:
+            raise GitignoreException(f"Error status code returned from {GITIGNORE_API_URL}")
 
         # MacOS's Icon file ends with a double \r, but this is removed by vscode upon saving.
         # To avoid a constant back and forth between user and sync tasks,
         # all \r chars are removed proactively
-        fetched_content = result.text.replace('\r', '')
+        fetched_content = result.text.replace("\r", "")
         self.generated_content_tokens = tokens
         self.generated_content = "\n".join(
             [
@@ -119,13 +128,13 @@ class GitignoreFile:
         )
 
     def refresh_generated_content_hash(self) -> None:
-        self.generated_content_hash = hashlib.sha256(self.generated_content.encode("utf-8")).hexdigest()
+        self.generated_content_hash = hash_content(self.generated_content)
 
     def check_generated_content_tokens(self, tokens: Sequence[str]) -> bool:
         return self.generated_content_tokens == tokens
 
     def check_generated_content_hash(self) -> bool:
-        return self.generated_content_hash == hashlib.sha256(self.generated_content.encode("utf-8")).hexdigest()
+        return self.generated_content_hash == hash_content(self.generated_content)
 
     def sort_gitignore(self, sort_paths: bool = True, sort_groups: bool = False) -> GitignoreFile:
         """Sorts the entries in the specified gitignore file, keeping paths under a common comment block grouped.
@@ -209,4 +218,6 @@ class GitignoreFile:
                     if token_match := re.match(GENERATED_TOKEN_REGEX, line):
                         gitignore.generated_content_tokens = token_match.group(1).split(", ")
 
+        if state == State.GENERATED:
+            raise GitignoreException("Generated section never closed")
         return gitignore

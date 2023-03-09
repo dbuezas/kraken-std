@@ -6,7 +6,10 @@ from typing import Sequence
 from kraken.core.api import Project, Property, TaskStatus, Task
 from kraken.core.lib.check_file_contents_task import as_bytes
 
-from ..gitignore import GitignoreFile
+from ..gitignore import GitignoreFile, GitignoreException
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class GitignoreSyncTask(Task):
@@ -26,10 +29,12 @@ class GitignoreSyncTask(Task):
     tokens: Property[Sequence[str]]
 
     def generate_file_contents(self, file: Path) -> str | bytes:
+        gitignore = GitignoreFile([])
         if file.exists():
-            gitignore = GitignoreFile.parse(file)
-        else:
-            gitignore = GitignoreFile([])
+            try:
+                gitignore = GitignoreFile.parse(file)
+            except:
+                logger.warn(f"Malformed gitignore detected - reseting (previous version saved to .gitignore.old)")
         gitignore.refresh_generated_content(tokens=self.tokens.get())
         gitignore.refresh_generated_content_hash()
         gitignore.sort_gitignore(self.sort_paths.get(), self.sort_groups.get())
@@ -39,7 +44,7 @@ class GitignoreSyncTask(Task):
         file = self.project.directory / ".gitignore"
         try:
             content = self.generate_file_contents(file)
-            new_str = as_bytes(content, 'utf-8')
+            new_str = as_bytes(content, "utf-8")
             if file.exists():
                 old_str = file.read_bytes()
                 if old_str != new_str:
@@ -47,5 +52,5 @@ class GitignoreSyncTask(Task):
                     backup_file.write_bytes(old_str)
             file.write_bytes(new_str)
 
-        except AssertionError as assert_error:
-            return TaskStatus.failed(f"Could not generate to the gitignore file: {assert_error}")
+        except GitignoreException as gitignore_exception:
+            return TaskStatus.failed(f"Could not generate to the gitignore file: {gitignore_exception}")

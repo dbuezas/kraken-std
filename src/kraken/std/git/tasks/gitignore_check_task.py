@@ -1,5 +1,5 @@
 from __future__ import annotations
-from ..gitignore import GitignoreFile
+from ..gitignore import GitignoreFile, GitignoreException
 from .const import GITIGNORE_TASK_NAME
 
 from pathlib import Path
@@ -38,20 +38,23 @@ class GitignoreCheckTask(Task):
             return TaskStatus.failed(f'file "{file_fmt}" does not exist{message_suffix}')
         if not file.is_file():
             return TaskStatus.failed(f'"{file}" is not a file')
-        gitignore = GitignoreFile.parse(file)
-        if not gitignore.check_generated_content_tokens(tokens=self.tokens.get()):
-            return TaskStatus.failed(
-                f'file "{file_fmt}" does not include latest set of generated entries from gitignore.io{message_suffix}'
-            )
-        if not gitignore.check_generated_content_hash():
-            return TaskStatus.failed(f'generated section of file "{file_fmt}" was modified{message_suffix}')
+        try:
+            gitignore = GitignoreFile.parse(file)
+            if not gitignore.check_generated_content_tokens(tokens=self.tokens.get()):
+                return TaskStatus.failed(
+                    f'file "{file_fmt}" does not include latest set of generated entries from gitignore.io{message_suffix}'
+                )
+            if not gitignore.check_generated_content_hash():
+                return TaskStatus.failed(f'generated section of file "{file_fmt}" was modified{message_suffix}')
 
-        unsorted = gitignore.render()
+            unsorted = gitignore.render()
 
-        gitignore.sort_gitignore(self.sort_paths.get(), self.sort_groups.get())
-        sorted = gitignore.render()
+            gitignore.sort_gitignore(self.sort_paths.get(), self.sort_groups.get())
+            sorted = gitignore.render()
 
-        if unsorted != sorted:
-            return TaskStatus.failed(f'"{file_fmt}" is not sorted{message_suffix}')
+            if unsorted != sorted:
+                return TaskStatus.failed(f'"{file_fmt}" is not sorted{message_suffix}')
 
-        return TaskStatus.up_to_date(f'file "{file_fmt}" is up to date')
+            return TaskStatus.up_to_date(f'file "{file_fmt}" is up to date')
+        except GitignoreException as gitignore_exception:
+            return TaskStatus.failed(f"{gitignore_exception}{message_suffix}")
