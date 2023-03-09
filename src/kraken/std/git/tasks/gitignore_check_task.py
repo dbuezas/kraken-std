@@ -20,6 +20,8 @@ class GitignoreCheckTask(Task):
 
     file: Property[Path]
     tokens: Property[Sequence[str]]
+    sort_paths: Property[bool] = Property.config(default=True)
+    sort_groups: Property[bool] = Property.config(default=False)
 
     def __init__(self, name: str, project: Project) -> None:
         super().__init__(name, project)
@@ -43,5 +45,13 @@ class GitignoreCheckTask(Task):
             )
         if not gitignore.check_generated_content_hash():
             return TaskStatus.failed(f'generated section of file "{file_fmt}" was modified{message_suffix}')
+
+        unsorted = gitignore.render()
+
+        gitignore.sort_gitignore(self.sort_paths.get(), self.sort_groups.get())
+        sorted = gitignore.render()
+
+        if unsorted != sorted:
+            return TaskStatus.failed(f'"{file_fmt}" is not sorted{message_suffix}')
 
         return TaskStatus.up_to_date(f'file "{file_fmt}" is up to date')

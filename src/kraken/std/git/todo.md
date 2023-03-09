@@ -34,7 +34,9 @@ Action plan
 
 # Chapter 4 - Tidy up
 [x] const file
-[] revisit \r with other write, read file
+[x] revisit \r with other write, read file
 [x] parse_file, rename parse
-[] evaluate not inheriting from RenderFileTask
+[ ] evaluate not inheriting from RenderFileTask
+[x] ensure check task validates gitignore sorting rules
+[ ] handle the exceptional case of not having an END_GUARD line (it crashes)
 
