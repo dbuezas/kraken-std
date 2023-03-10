@@ -11,7 +11,7 @@ from .tasks.gitignore_sync_task import GitignoreSyncTask
 from .tasks.gitignore_check_task import GitignoreCheckTask
 from .version import GitVersion, git_describe
 
-__all__ = ["git_describe", "GitVersion", "GitignoreSyncTask", "gitignore"]
+__all__ = ["git_describe", "GitVersion", "GitignoreSyncTask", "gitignore", "DEFAULT_GITIGNORE_TOKENS"]
 
 
 def gitignore(
@@ -23,8 +23,9 @@ def gitignore(
     task = cast(Optional[GitignoreSyncTask], project.tasks().get(GITIGNORE_TASK_NAME))
     if task is None:
         task = project.do(GITIGNORE_TASK_NAME, GitignoreSyncTask, group="apply", tokens=tokens, extra_paths=extra_paths)
-        project.do(GITIGNORE_TASK_NAME + ".check", GitignoreCheckTask,
-                   group="check", tokens=tokens, extra_paths=extra_paths)
+        project.do(
+            GITIGNORE_TASK_NAME + ".check", GitignoreCheckTask, group="check", tokens=tokens, extra_paths=extra_paths
+        )
     else:
         raise ValueError("cannot gitignore task can only be added once")
     return task

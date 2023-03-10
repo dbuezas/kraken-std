@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Sequence
 
-from kraken.core.api import Project, Property, TaskStatus, Task
+from kraken.core.api import Property, TaskStatus, Task
 from kraken.core.lib.check_file_contents_task import as_bytes
 
 from ..gitignore import GitignoreFile, GitignoreException
@@ -13,14 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class GitignoreSyncTask(Task):
-    # TODO(david): update docs
-    """This task ensures that a given set of entries are present in a `.gitignore` file.
+    """This task ensures that a given set of entries are present in a `.gitignore` file. These entries
+    are made up of:
+        a) :attr`tokens`: Used to source paths from gitignore.io
+        b) :attr:`extra_paths`: Additional required paths
+        c) Custom paths added manually by the user directly to the .gitignore
 
-    The :attr:`header` property can be set to place the paths below a particular comment in the `.gitignore` file. If
-    there is no comment with the given text, it and the paths will be appended to the end of the file. When no header
-    is specified, only missing paths will be added to beginning of the `.gitignore` file.
-
-    If :attr:`sort` is enabled, the `.gitignore` file will be sorted (keeping paths grouped under their comments).
+    If :attr:`sort_paths` is enabled, the `.gitignore` file will be sorted (keeping paths grouped under their comments).
 
     It's common to group this task under the default `fmt` group, as it is similar to formatting a `.gitignore` file.
     """

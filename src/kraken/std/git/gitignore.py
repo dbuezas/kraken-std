@@ -8,7 +8,6 @@ from os import PathLike
 from pathlib import Path
 from typing import Iterable, NamedTuple, TextIO, Sequence, Optional
 import re
-
 import httpx
 
 

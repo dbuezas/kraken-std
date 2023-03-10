@@ -18,9 +18,4 @@ DEFAULT_GITIGNORE_TOKENS = [
     "gcov",
     "node",
     "yarn",
-    # Languages
-    "python",
-    "rust",
-    "react",
-    "matlab",
 ]

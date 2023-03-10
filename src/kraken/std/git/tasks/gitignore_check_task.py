@@ -16,8 +16,9 @@ def as_bytes(v: str | bytes, encoding: str) -> bytes:
 
 
 class GitignoreCheckTask(Task):
-    # TODO(david): update docs
-    """ """
+    """This task checks that a given set of entries are present in a `.gitignore` file. This has the
+    same params as :class:`GitignoreSyncTask`
+    """
 
     file: Property[Path]
     tokens: Property[Sequence[str]]
@@ -45,9 +46,7 @@ class GitignoreCheckTask(Task):
             if not gitignore.check_generated_content_hash():
                 return TaskStatus.failed(f'generated section of file "{file_fmt}" was modified{message_suffix}')
             if not gitignore.check_generation_parameters(tokens=self.tokens.get(), extra_paths=self.extra_paths.get()):
-                return TaskStatus.failed(
-                    f'file "{file_fmt}" is not up to date, call `kraken run apply` to fix'
-                )
+                return TaskStatus.failed(f'file "{file_fmt}" is not up to date, call `kraken run apply` to fix')
 
             unsorted = gitignore.render()
 
