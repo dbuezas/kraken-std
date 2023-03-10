@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class GitignoreSyncTask(Task):
+    # TODO(david): update docs
     """This task ensures that a given set of entries are present in a `.gitignore` file.
 
     The :attr:`header` property can be set to place the paths below a particular comment in the `.gitignore` file. If
@@ -27,6 +28,7 @@ class GitignoreSyncTask(Task):
     sort_paths: Property[bool] = Property.config(default=True)
     sort_groups: Property[bool] = Property.config(default=False)
     tokens: Property[Sequence[str]]
+    extra_paths: Property[Sequence[str]]
 
     def generate_file_contents(self, file: Path) -> str | bytes:
         gitignore = GitignoreFile([])
@@ -35,7 +37,7 @@ class GitignoreSyncTask(Task):
                 gitignore = GitignoreFile.parse(file)
             except:
                 logger.warn(f"Malformed gitignore detected - reseting (previous version saved to .gitignore.old)")
-        gitignore.refresh_generated_content(tokens=self.tokens.get())
+        gitignore.refresh_generated_content(tokens=self.tokens.get(), extra_paths=self.extra_paths.get())
         gitignore.refresh_generated_content_hash()
         gitignore.sort_gitignore(self.sort_paths.get(), self.sort_groups.get())
         return gitignore.render()

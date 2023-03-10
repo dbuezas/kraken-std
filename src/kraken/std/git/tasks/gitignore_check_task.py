@@ -16,12 +16,14 @@ def as_bytes(v: str | bytes, encoding: str) -> bytes:
 
 
 class GitignoreCheckTask(Task):
+    # TODO(david): update docs
     """ """
 
     file: Property[Path]
     tokens: Property[Sequence[str]]
     sort_paths: Property[bool] = Property.config(default=True)
     sort_groups: Property[bool] = Property.config(default=False)
+    extra_paths: Property[Sequence[str]] = Property.config(default=[])
 
     def __init__(self, name: str, project: Project) -> None:
         super().__init__(name, project)
@@ -40,12 +42,12 @@ class GitignoreCheckTask(Task):
             return TaskStatus.failed(f'"{file}" is not a file')
         try:
             gitignore = GitignoreFile.parse(file)
-            if not gitignore.check_generated_content_tokens(tokens=self.tokens.get()):
-                return TaskStatus.failed(
-                    f'file "{file_fmt}" does not include latest set of generated entries from gitignore.io{message_suffix}'
-                )
             if not gitignore.check_generated_content_hash():
                 return TaskStatus.failed(f'generated section of file "{file_fmt}" was modified{message_suffix}')
+            if not gitignore.check_generation_parameters(tokens=self.tokens.get(), extra_paths=self.extra_paths.get()):
+                return TaskStatus.failed(
+                    f'file "{file_fmt}" is not up to date, call `kraken run apply` to fix'
+                )
 
             unsorted = gitignore.render()
 
