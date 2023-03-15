@@ -1,14 +1,14 @@
 from __future__ import annotations
-from ..gitignore import GitignoreFile, GitignoreException
-from .const import GITIGNORE_TASK_NAME
 
 from pathlib import Path
 from typing import Sequence
-from kraken.core import Project, Property, Task, TaskStatus
-from kraken.core.api import Project, Property
-from termcolor import colored
 
 from kraken.common.path import try_relative_to
+from kraken.core.api import Project, Property, Task, TaskStatus
+from termcolor import colored
+
+from ..gitignore import GitignoreException, GitignoreFile
+from .const import GITIGNORE_TASK_NAME
 
 
 def as_bytes(v: str | bytes, encoding: str) -> bytes:
@@ -30,7 +30,7 @@ class GitignoreCheckTask(Task):
         super().__init__(name, project)
         self.file.setcallable(lambda: self.project.directory / ".gitignore")
 
-    def execute(self) -> TaskStatus | None:
+    def execute(self) -> TaskStatus:
         file = try_relative_to(self.file.get())
         file_fmt = colored(str(file), "yellow", attrs=["bold"])
 

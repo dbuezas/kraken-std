@@ -6,12 +6,19 @@ from typing import Optional, Sequence, cast
 
 from kraken.core.api import Project
 
-from .tasks.const import GITIGNORE_TASK_NAME, DEFAULT_GITIGNORE_TOKENS
-from .tasks.gitignore_sync_task import GitignoreSyncTask
+from .tasks.const import DEFAULT_GITIGNORE_TOKENS, GITIGNORE_TASK_NAME
 from .tasks.gitignore_check_task import GitignoreCheckTask
+from .tasks.gitignore_sync_task import GitignoreSyncTask
 from .version import GitVersion, git_describe
 
-__all__ = ["git_describe", "GitVersion", "GitignoreSyncTask", "gitignore", "DEFAULT_GITIGNORE_TOKENS"]
+__all__ = [
+    "git_describe",
+    "GitVersion",
+    "GitignoreSyncTask",
+    "GitignoreCheckTask",
+    "gitignore",
+    "DEFAULT_GITIGNORE_TOKENS",
+]
 
 
 def gitignore(

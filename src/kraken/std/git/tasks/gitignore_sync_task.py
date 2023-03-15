@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Sequence
 
-from kraken.core.api import Property, TaskStatus, Task
+from kraken.core.api import Property, Task, TaskStatus
 from kraken.core.lib.check_file_contents_task import as_bytes
 
-from ..gitignore import GitignoreFile, GitignoreException
-import logging
+from ..gitignore import GitignoreException, GitignoreFile
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ class GitignoreSyncTask(Task):
         if file.exists():
             try:
                 gitignore = GitignoreFile.parse(file)
-            except:
-                logger.warn(f"Malformed gitignore detected - reseting (previous version saved to .gitignore.old)")
+            except (GitignoreException, ValueError):
+                logger.warn("Malformed gitignore detected - reseting (previous version saved to .gitignore.old)")
         gitignore.refresh_generated_content(tokens=self.tokens.get(), extra_paths=self.extra_paths.get())
         gitignore.refresh_generated_content_hash()
         gitignore.sort_gitignore(self.sort_paths.get(), self.sort_groups.get())
@@ -52,6 +52,7 @@ class GitignoreSyncTask(Task):
                     backup_file = self.project.directory / ".gitignore.old"
                     backup_file.write_bytes(old_str)
             file.write_bytes(new_str)
+            return TaskStatus.up_to_date('".gitignore" is up to date')
 
         except GitignoreException as gitignore_exception:
             return TaskStatus.failed(f"Could not generate to the gitignore file: {gitignore_exception}")
